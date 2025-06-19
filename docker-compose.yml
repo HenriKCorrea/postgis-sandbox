@@ -4,12 +4,15 @@ services:
     image: docker.io/postgis/postgis:17-3.5-alpine
     environment:
       POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
       - some-network
 
   admin:
+    container_name: pgadmin
     image:  docker.io/dpage/pgadmin4:9.4.0
     environment:
       PGADMIN_DEFAULT_EMAIL: postgres@localhost.com
