@@ -3,11 +3,7 @@ services:
     container_name: some-postgis
     image: docker.io/postgis/postgis:17-3.5-alpine
     environment:
-      # POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
-      # POSTGRES_DB: mydatabase
-    # ports:
-      # - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
