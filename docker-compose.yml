@@ -13,9 +13,22 @@ services:
     networks:
       - some-network
 
+  admin:
+    image:  docker.io/dpage/pgadmin4:9.4.0
+    environment:
+      PGADMIN_DEFAULT_EMAIL: postgres@localhost.com
+      PGADMIN_DEFAULT_PASSWORD: secret
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    volumes:
+      - admin_data:/var/lib/pgadmin
+
 networks:
   some-network:
     driver: bridge
 
 volumes:
   db_data:
+  admin_data:
