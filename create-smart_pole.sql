@@ -1,6 +1,9 @@
 -- This script creates a new table smart_pole that extends the nyc_pole_location structure
 -- by adding additional fields for air quality index and semaphore status.
 -- It also ensures the PostGIS extension is enabled for spatial data handling.
+---------------------------------------------
+-- Table creation
+---------------------------------------------
 BEGIN;
 -- Ensure the PostGIS extension is enabled
 CREATE EXTENSION IF NOT EXISTS postgis;
@@ -15,27 +18,9 @@ CREATE TABLE smart_pole (
     air_quality_index INT,
     semaphore_status BOOLEAN
 );
--- Insert existing nyc_pole_location records into smart_pole
-INSERT INTO smart_pole (
-        geom,
-        id,
-        on_street,
-        zipcode,
-        installation_date,
-        air_quality_index,
-        semaphore_status
-    )
-SELECT ST_SetSRID(
-        ST_MakePoint(longitude, latitude),
-        4326
-    ),
-    id,
-    on_street,
-    zipcode,
-    installation_date,
-    NULL AS air_quality_index,
-    NULL AS semaphore_status
-FROM nyc_pole_location;
+---------------------------------------------
+-- Schema constraints and indexes
+---------------------------------------------
 -- Add spatial index for efficient querying
 CREATE INDEX idx_smart_pole_geom ON smart_pole USING GIST (geom);
 -- Add a foreign key constraint to ensure id references the nyc_pole_location table
@@ -87,5 +72,47 @@ COMMENT ON COLUMN smart_pole.zipcode IS 'Zip code where the smart pole is locate
 COMMENT ON COLUMN smart_pole.installation_date IS 'Date when the smart pole was installed.';
 COMMENT ON COLUMN smart_pole.air_quality_index IS 'Air quality index associated with the smart pole, if available.';
 COMMENT ON COLUMN smart_pole.semaphore_status IS 'Status of the semaphore associated with the smart pole, indicating operational state.';
--- Ensure the table is ready
+---------------------------------------------
+-- Trigger for notifications
+---------------------------------------------
+-- Trigger function to notify changes for external subscribers
+-- This function will be called whenever there is an INSERT, UPDATE, or DELETE on the table.
+DROP FUNCTION IF EXISTS notify_smart_pole();
+CREATE OR REPLACE FUNCTION notify_smart_pole() RETURNS TRIGGER AS $$ BEGIN PERFORM pg_notify('qgis', TG_OP);
+-- TG_OP is the operation type: INSERT, UPDATE, DELETE
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+-- Trigger to call the function on INSERT, UPDATE, DELETE
+DROP TRIGGER IF EXISTS trg_notify_smart_pole ON smart_pole;
+CREATE TRIGGER trg_notify_smart_pole
+AFTER
+INSERT
+    OR
+UPDATE
+    OR DELETE ON smart_pole FOR EACH STATEMENT EXECUTE FUNCTION notify_smart_pole();
+---------------------------------------------
+-- Table population
+---------------------------------------------
+-- Insert existing nyc_pole_location records into smart_pole
+INSERT INTO smart_pole (
+        geom,
+        id,
+        on_street,
+        zipcode,
+        installation_date,
+        air_quality_index,
+        semaphore_status
+    )
+SELECT ST_SetSRID(
+        ST_MakePoint(longitude, latitude),
+        4326
+    ),
+    id,
+    on_street,
+    zipcode,
+    installation_date,
+    NULL AS air_quality_index,
+    NULL AS semaphore_status
+FROM nyc_pole_location;
 COMMIT;
