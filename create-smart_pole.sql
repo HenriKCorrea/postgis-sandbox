@@ -16,7 +16,7 @@ CREATE TABLE smart_pole (
     zipcode TEXT,
     installation_date TIMESTAMP,
     air_quality_index INT,
-    semaphore_status BOOLEAN
+    semaphore_state TEXT
 );
 ---------------------------------------------
 -- Schema constraints and indexes
@@ -56,11 +56,12 @@ ADD CONSTRAINT check_air_quality_index_range CHECK (
             AND air_quality_index <= 500
         )
     );
--- Add a check constraint to ensure semaphore_status is null or boolean
+-- Add a check constraint to ensure semaphore_state is null or one of the valid states
+-- Valid states are 'green', 'yellow' or 'red'
 ALTER TABLE smart_pole
-ADD CONSTRAINT check_semaphore_status_null_or_boolean CHECK (
-        semaphore_status IS NULL
-        OR semaphore_status IN (TRUE, FALSE)
+ADD CONSTRAINT check_semaphore_state_valid CHECK (
+        semaphore_state IS NULL
+        OR semaphore_state IN ('green', 'yellow', 'red')
     );
 -- Add a comment to the table for clarity
 COMMENT ON TABLE smart_pole IS 'Table containing smart pole data with spatial information, air quality index, and semaphore status.';
@@ -71,14 +72,14 @@ COMMENT ON COLUMN smart_pole.on_street IS 'Street name where the smart pole is i
 COMMENT ON COLUMN smart_pole.zipcode IS 'Zip code where the smart pole is located.';
 COMMENT ON COLUMN smart_pole.installation_date IS 'Date when the smart pole was installed.';
 COMMENT ON COLUMN smart_pole.air_quality_index IS 'Air quality index associated with the smart pole, if available.';
-COMMENT ON COLUMN smart_pole.semaphore_status IS 'Status of the semaphore associated with the smart pole, indicating operational state.';
+COMMENT ON COLUMN smart_pole.semaphore_state IS 'Status of the semaphore associated with the smart pole, indicating operational state.';
 ---------------------------------------------
 -- Trigger for notifications
 ---------------------------------------------
 -- Trigger function to notify changes for external subscribers
 -- This function will be called whenever there is an INSERT, UPDATE, or DELETE on the table.
 DROP FUNCTION IF EXISTS notify_smart_pole();
-CREATE OR REPLACE FUNCTION notify_smart_pole() RETURNS TRIGGER AS $$ BEGIN PERFORM pg_notify('qgis', TG_OP);
+CREATE FUNCTION notify_smart_pole() RETURNS TRIGGER AS $$ BEGIN PERFORM pg_notify('qgis', TG_OP);
 -- TG_OP is the operation type: INSERT, UPDATE, DELETE
 RETURN NEW;
 END;
@@ -102,7 +103,7 @@ INSERT INTO smart_pole (
         zipcode,
         installation_date,
         air_quality_index,
-        semaphore_status
+        semaphore_state
     )
 SELECT ST_SetSRID(
         ST_MakePoint(longitude, latitude),
@@ -113,6 +114,38 @@ SELECT ST_SetSRID(
     zipcode,
     installation_date,
     NULL AS air_quality_index,
-    NULL AS semaphore_status
+    NULL AS semaphore_state
 FROM nyc_pole_location;
+---------------------------------------------
+-- Helper functions
+---------------------------------------------
+-- Function to update air_quality_index and semaphore_state randomly
+CREATE OR REPLACE FUNCTION update_smart_pole_random() RETURNS void AS $$ BEGIN
+UPDATE smart_pole
+SET air_quality_index = (
+        CASE
+            WHEN rnd < 0.35 THEN floor(random() * 51) -- 0-50 (35%)
+            WHEN rnd < 0.60 THEN floor(random() * 51) + 50 -- 50-100 (25%)
+            WHEN rnd < 0.725 THEN floor(random() * 51) + 100 -- 100-150 (12.5%)
+            WHEN rnd < 0.85 THEN floor(random() * 51) + 150 -- 150-200 (12.5%)
+            WHEN rnd < 0.95 THEN floor(random() * 101) + 200 -- 200-300 (10%)
+            ELSE floor(random() * 201) + 300 -- 300-500 (5%)
+        END
+    ),
+    semaphore_state = (
+        CASE
+            WHEN color_rnd < 0.6 THEN 'red' -- 60% red
+            WHEN color_rnd < 0.9 THEN 'green' -- 30% green
+            ELSE 'yellow' -- 10% yellow
+        END
+    )
+FROM (
+        SELECT random() AS rnd,
+            random() AS color_rnd
+    ) AS r;
+END;
+$$ LANGUAGE plpgsql;
+---------------------------------------------
+-- End of script
+---------------------------------------------
 COMMIT;
