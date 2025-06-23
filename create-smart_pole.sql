@@ -139,10 +139,14 @@ SET air_quality_index = (
             ELSE 'yellow' -- 10% yellow
         END
     )
+-- Randomly update air_quality_index and semaphore_state for each smart pole record
 FROM (
-        SELECT random() AS rnd,
+        SELECT id,
+            random() AS rnd,
             random() AS color_rnd
-    ) AS r;
+        FROM smart_pole
+    ) AS r
+WHERE smart_pole.id = r.id;
 END;
 $$ LANGUAGE plpgsql;
 ---------------------------------------------
