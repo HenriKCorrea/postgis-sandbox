@@ -1,0 +1,74 @@
+@startuml entiti-relationship
+!theme plain
+title PostGIS Smart Pole Database - Entity Relationship Diagram
+
+' Entity definitions
+entity "nyc_pole_location" {
+  * id : SERIAL <<PK>>
+  --
+  * latitude : FLOAT
+  * longitude : FLOAT
+  * on_street : TEXT
+  * zipcode : TEXT
+  * installation_date : TIMESTAMP
+  --
+  Constraints:
+  • check_zipcode_format
+  • check_on_street_not_empty
+  • check_installation_date_not_future
+  --
+  Indexes:
+  • idx_nyc_pole_location_lat_lon
+}
+
+entity "smart_pole" {
+  * id : INT <<PK,FK>>
+  --
+  * geom : GEOMETRY(Point, 4326)
+  * on_street : TEXT
+  * zipcode : TEXT
+  * installation_date : TIMESTAMP
+  air_quality_index : INT
+  semaphore_state : TEXT
+  --
+  Constraints:
+  • unique_geom
+  • check_installation_date_not_future
+  • check_zipcode_format
+  • check_on_street_not_empty
+  • check_geom_not_null
+  • check_air_quality_index_range (0-500)
+  • check_semaphore_state_valid (green/yellow/red)
+  --
+  Indexes:
+  • idx_smart_pole_geom (GIST)
+}
+
+' Function definitions
+note top of smart_pole
+  **Functions:**
+  • notify_smart_pole()
+  • update_smart_pole_random()
+  
+  **Triggers:**
+  • trg_notify_smart_pole
+end note
+
+' Relationships
+nyc_pole_location ||--|| smart_pole : "id references"
+
+note bottom of nyc_pole_location
+  **Data Source:**
+  NYC Open Data - Pole Locations
+  1998 records from Manhattan
+  Installed poles only
+end note
+
+note right of smart_pole
+  **Spatial Features:**
+  • PostGIS enabled
+  • Point geometry in WGS 84
+  • IoT sensor simulation ready
+  • Real-time notifications
+end note
+@enduml

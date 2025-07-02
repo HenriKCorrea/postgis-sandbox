@@ -1,0 +1,50 @@
+@startuml seed-workflow
+!theme plain
+title Research Database Setup - PostGIS Smart Pole Data
+
+' Define participants
+actor User
+database "Database" as DB
+participant "Dataset Provider" as Provider
+
+' Workflow steps
+User -> Provider : Download dataset
+activate Provider
+Provider --> User : nyc_pole_location.csv\n(1998 pole records)
+deactivate Provider
+
+User -> DB : Create "nyc_pole_location" table
+activate DB
+note right of DB
+  Table with constraints:
+  - id, latitude, longitude
+  - on_street, zipcode
+  - installation_date
+end note
+DB --> User : Table created
+deactivate DB
+
+User -> DB : Create "smart_pole" table
+activate DB
+note right of DB
+  Extended table with:
+  - PostGIS geometry column
+  - air_quality_index
+  - semaphore_state
+  - Foreign key to nyc_pole_location
+end note
+DB --> User : Table created
+deactivate DB
+
+User -> DB : Create "update_smart_pole_random" helper function
+activate DB
+note right of DB
+  Function for generating random:
+  - Air quality index (0-500)
+  - Semaphore states (red/green/yellow)
+  For research simulations
+end note
+DB --> User : Helper function created
+deactivate DB
+
+@enduml

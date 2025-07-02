@@ -1,0 +1,41 @@
+@startuml qgis-realtime-demo
+!theme plain
+title QGIS Real-time Map Updates - Smart Pole Monitoring Demo
+
+' Define participants
+actor User
+database "PostgreSQL\nDatabase" as DB
+participant "QGIS\nMap Canvas" as QGIS
+
+' Demo setup
+User -> QGIS : Load smart_pole layer
+activate QGIS
+QGIS -> DB : Connect to PostGIS layer
+DB --> QGIS : Initial pole data loaded
+QGIS -> QGIS : Render initial map\n(colored by semaphore_state)
+QGIS --> User : Display poles with colors
+
+' Start the demo
+User -> User : Execute demo script\n(update smart_pole data)
+activate User
+
+' Continuous update loop
+loop Every 8 seconds
+  User -> DB : UPDATE smart_pole\n(air_quality_index, semaphore_state)
+  activate DB
+  
+  DB -> DB : Update data and trigger\nnotify_smart_pole()
+  
+  DB -> QGIS : PostgreSQL notification\npg_notify('qgis', 'UPDATE')
+  
+  
+  QGIS -> DB : Refresh layer data
+  DB --> QGIS : Updated pole attributes
+  deactivate DB
+  
+  QGIS -> QGIS : Re-render map with new data
+  QGIS --> User : Live map updates!\n(colors change, sizes adjust)
+  
+  User -> User : Wait 8 seconds
+end
+@enduml
